@@ -1,0 +1,6 @@
+fastapi==0.110.0
+uvicorn[standard]==0.29.0
+requests==2.31.0
+# FLAW (vulnerable dependency): PyYAML 5.3.1 has CVE-2020-14343 (arbitrary code
+# execution via yaml.load). SCA (grype/trivy) should flag this as CRITICAL.
+PyYAML==5.3.1

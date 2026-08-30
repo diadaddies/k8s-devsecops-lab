@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.db
+*.sbom.json
+*.sarif
+reports/
+.venv/
+kubeconfig
+*.key
+cosign.key
