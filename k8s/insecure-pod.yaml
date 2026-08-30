@@ -1,0 +1,18 @@
+# A deliberately non-compliant Pod used to DEMONSTRATE admission control.
+# Applying this should be REJECTED by Kyverno: it runs as root, is privileged,
+# escalates privileges, sets no resource limits, and uses an unsigned public image.
+# This is the "money shot" — policy-as-code refusing a bad workload at the door.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: insecure-demo
+  namespace: vault
+spec:
+  containers:
+    - name: bad
+      image: nginx:latest            # unsigned, not from our registry
+      securityContext:
+        privileged: true             # <- blocked
+        runAsUser: 0                  # <- blocked (root)
+        allowPrivilegeEscalation: true
+      # no resource limits            # <- blocked

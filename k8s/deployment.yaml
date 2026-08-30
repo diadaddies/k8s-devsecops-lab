@@ -1,0 +1,44 @@
+# Phase 4 — hardened workload. Every securityContext line below exists to satisfy
+# a Kyverno Pod-Security policy AND to shrink the blast radius if the app is popped.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault-api
+  namespace: vault
+  labels: { app: vault-api }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: vault-api }
+  template:
+    metadata:
+      labels: { app: vault-api }
+    spec:
+      automountServiceAccountToken: false     # a popped Pod shouldn't get an API token
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: vault-api
+          # Verified & pinned to a digest by Kyverno at admission time.
+          image: ghcr.io/diadaddies/vault-api:latest
+          ports: [ { containerPort: 8000 } ]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ "ALL" ] }
+          resources:
+            requests: { cpu: "50m", memory: "64Mi" }
+            limits:   { cpu: "300m", memory: "192Mi" }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }    # RO rootfs -> app writes its DB here
+          livenessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 5
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 3
+      volumes:
+        - name: tmp
+          emptyDir: {}

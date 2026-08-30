@@ -1,0 +1,24 @@
+# Enforces the Kubernetes "restricted" Pod Security Standard in one rule:
+# no privileged, no privilege escalation, runAsNonRoot, drop ALL capabilities,
+# seccomp RuntimeDefault. The insecure-demo Pod violates this and is rejected.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pod-security-restricted
+  annotations:
+    policies.kyverno.io/description: >-
+      Blocks workloads that don't meet the restricted Pod Security Standard.
+spec:
+  validationFailureAction: Enforce      # Enforce = block; Audit = report-only
+  background: true
+  rules:
+    - name: restricted
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [vault]
+      validate:
+        podSecurity:
+          level: restricted
+          version: latest

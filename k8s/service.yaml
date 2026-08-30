@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-api
+  namespace: vault
+spec:
+  selector: { app: vault-api }
+  ports:
+    - port: 80
+      targetPort: 8000

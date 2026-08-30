@@ -1,0 +1,46 @@
+name: source-scan
+
+# Phase 2 — shift-left. Runs on GitHub cloud runners on every push.
+# Analyzes source + dependencies WITHOUT running the app. Report-only for now
+# (study the findings); flip the marked lines to gate on HIGH/CRITICAL later.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install gitleaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin gitleaks
+      - name: Scan for secrets
+        run: gitleaks detect --source . --no-git --redact -v --exit-code 0   # -> exit 1 to gate
+
+  sast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Install SAST tools
+        run: python -m pip install --quiet bandit semgrep
+      - name: Bandit (Python-specific)
+        run: bandit -r app -ll || true                       # -> drop '|| true' to gate
+      - name: Semgrep (multi-rule)
+        run: semgrep scan --config auto --error app || true  # -> drop '|| true' to gate
+
+  sca:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install grype
+        run: curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+      - name: Dependency CVE scan
+        run: grype dir:app --add-cpes-if-none    # add: --fail-on critical  to gate

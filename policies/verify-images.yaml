@@ -1,0 +1,34 @@
+# The supply-chain enforcement point. Kyverno verifies that any vault-api image
+# was signed KEYLESS by our build-sign GitHub Actions workflow (Sigstore OIDC
+# identity), and mutates the image to its digest on admission. Anything unsigned,
+# tampered, or signed by a different identity is REJECTED.
+#
+# NOTE: set the subject regex to YOUR repo. Default branch here is assumed 'master'
+# or 'main' (the .* covers both). Update the owner/repo if you fork it.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-vault-image-signature
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  background: false
+  rules:
+    - name: verify-keyless-signature
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [vault]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/diadaddies/vault-api*"
+          mutateDigest: true          # pin the verified image to its digest
+          required: true
+          attestors:
+            - entries:
+                - keyless:
+                    subjectRegExp: "https://github.com/diadaddies/k8s-devsecops-lab/.github/workflows/build-sign.yml@refs/heads/.*"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: "https://rekor.sigstore.dev"

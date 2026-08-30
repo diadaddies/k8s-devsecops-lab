@@ -1,0 +1,21 @@
+# Phase 7 — default-deny egress. The app's /fetch (SSRF) and /ping endpoints try to
+# reach out; this policy denies all egress except DNS, so an SSRF can't pivot to
+# internal services or cloud metadata. Ingress is limited to the app port.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vault-api-default-deny
+  namespace: vault
+spec:
+  podSelector:
+    matchLabels: { app: vault-api }
+  policyTypes: [ Ingress, Egress ]
+  ingress:
+    - ports:
+        - { protocol: TCP, port: 8000 }
+  egress:
+    # allow only DNS so the app can resolve names; everything else is denied
+    - to: []
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }

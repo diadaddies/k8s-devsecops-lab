@@ -1,0 +1,34 @@
+# Phase 6 — shift-right. A custom Falco rule tuned to vault-api: the app only ever
+# runs python/uvicorn (and 'ping' for its /ping endpoint). Anything else executing
+# inside the container — id, whoami, cat, nc, curl, a shell doing more than ping —
+# means the command-injection flaw is being exploited RIGHT NOW.
+- macro: vault_api_container
+  condition: (container.image.repository contains "vault-api")
+
+- list: vault_expected_procs
+  items: [python, python3, uvicorn, ping, sh]
+
+- rule: Unexpected process in vault-api
+  desc: >
+    A process outside the expected set executed in the vault-api container.
+    Strong signal of command-injection exploitation (e.g. /ping?host=x;id).
+  condition: >
+    spawned_process and vault_api_container
+    and not proc.name in (vault_expected_procs)
+  output: >
+    Unexpected process in vault-api container
+    (proc=%proc.cmdline parent=%proc.pname user=%user.name
+    container=%container.name image=%container.image.repository)
+  priority: WARNING
+  tags: [process, mitre_execution, T1059]
+
+- rule: Sensitive file read in vault-api
+  desc: The app read a sensitive credential file — likely exfiltration via injection/SSRF.
+  condition: >
+    open_read and vault_api_container
+    and (fd.name startswith /etc/shadow or fd.name=/etc/passwd)
+  output: >
+    Sensitive file opened in vault-api (file=%fd.name proc=%proc.cmdline
+    container=%container.name)
+  priority: WARNING
+  tags: [filesystem, mitre_credential_access, T1003]
